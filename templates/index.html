@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FindLAW-"Seeking Legal Wisdom"</title>
+</head>
+<body>
+    <form method="POST" action="/state">
+        <input type="text" name="input_areas" placeholder="Enter the Practice areas">
+        <button type="submit" name="submit" value="submit">Submit</button>
+    </form>
+
+    <form method="POST" action="/practice_areas">
+        <button type="submit" name="submit" value="submit">To Select your practice areas</button>
+    </form>
+    {% block body %}
+    {% endblock %}
+</body>
+</html>

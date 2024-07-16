@@ -1,0 +1,36 @@
+{% extends 'index.html'%}
+{% block body %}
+<form method="POST" action="/state">
+    {% for data in datas%}
+        <li><button type="submit" name="input_submit" value="{{(data)}}">{{(data)}}</button></li>
+    {%endfor%}
+</form>
+<form method="POST" action="/city">
+    {% for data in state_list%}
+        <li><button type="submit" name="input_state" value="{{(data)}}">{{(data)}}</button></li>
+    {%endfor%}
+</form>
+<form method="POST" action="/law_firms">
+    {% for data in city_list%}
+        <li><button type="submit" name="input_city" value="{{(data)}}">{{(data)}}</button></li>
+    {%endfor%}
+</form>
+<form method="POST" action="/final">
+    {% for data in firms_list%}
+        <div><button type="submit" name="input_city" value="{{(data)}}"><a href="{{(data['url'])}}">{{(data['law_firm_name'])}}</a>
+            <div><p>{{(extracted_data[0])}}</p></div>
+            {{data}}</button></div>
+    {%endfor%}
+    
+</form>
+{% if firms_list_ofstates_status%}
+    <h2>Other Similar law firms in {{extracted_data['state']}}</h2>
+    <form method="POST" action="/final">
+        {% for data in firms_list_ofstates%}
+            <div><button type="submit" name="input_city" value="{{(data)}}"><a href="{{(data['url'])}}">{{(data['law_firm_name'])}}</a>
+                <p>{{(data)}}</p>
+            </button></div>
+        {%endfor%}
+    </form>
+{% endif %}
+{% endblock %}
