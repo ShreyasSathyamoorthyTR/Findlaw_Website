@@ -1,3 +1,4 @@
+#Importing all the packages and libraries required
 import psycopg2
 import tempfile,csv,json,os,io
 from contextlib import contextmanager
@@ -5,15 +6,22 @@ import pandas as pd
 from flask import Response, stream_with_context,Blueprint,render_template,redirect,url_for, request, session,make_response,send_file
 from io import StringIO
 from cachelib import SimpleCache
+
+
+#initializing the cache variable and setting the app blueprint
 extracted_data_cache = {}
 app = Blueprint('app',__name__)
 
+
+#declaring the datatbase details
 hostname='localhost'
 database='dump'
 username='postgres'
 pwd='password'
 port_id=5432
 
+
+#Initializing all the practice areas which should be displayed in the webpage
 practice_areas = [
     "Administrative Law",
     "Alternative Dispute Resolution",
@@ -91,7 +99,9 @@ practice_areas = [
     "Workers' Compensation"
 ]
 
-actice_areas=sorted(practice_areas)
+
+#A function to remove all the special characters
+pactice_areas=sorted(practice_areas)
 def alnumspace(practice_areas):
     ii=practice_areas
     x=""
@@ -102,73 +112,82 @@ def alnumspace(practice_areas):
     return practice_areas
 
 
+#This function splits the words with spaces and '/' and make the next letter capital
 def to_capital(x):
-    xx=[]
-    y=""
-    for i in range(0,len(x)):
-        if x[i]==" ":
-            xx.append(i)
-    for i in xx:
-        y=x[:i+1]+x[i+1].capitalize()+x[i+2:]
-    return y
+    if len(x)>=2:
+        y=str(x[0])
+        for i in range(1,len(x)):
+            if x[i-1]==" " or x[i-1]=="/":
+                y+=x[i].upper()
+            else:
+                y+=x[i]
+        return y
+    else:
+        return ""
+            
         
+#This function will display all the states matching with the practice area selected       
 def display_state(data):
-    # cur.execute(f'''SELECT state FROM dump WHERE practice_areas @> ARRAY['{to_capital(data.capitalize())}'] or practice_areas @> ARRAY['{data.capitalize()}']''')
     conn=psycopg2.connect(host=hostname, dbname=database, user=username, password=pwd, port=port_id)
     cur = conn.cursor()
     conn.autocommit= True
-    cur.execute(f'''SELECT state FROM dump WHERE practice_areas @> ARRAY['{(data)}']''')
+    cur.execute(f'''SELECT state FROM dump WHERE practice_areas @> ARRAY['{to_capital(data)}']''')
     all_states=(cur.fetchall())
     cur.close()
     conn.close()
     return all_states
 
+
+#This function will display all the city matching to the practice area and state selected
 def display_city(data,extracted_data):
     conn=psycopg2.connect(host=hostname, dbname=database, user=username, password=pwd, port=port_id)
     cur = conn.cursor()
     conn.autocommit= True
     cur.execute(f'''SELECT city FROM dump WHERE ((practice_areas @> ARRAY['{(extracted_data[0]['practice_areas'])}']) and (state @> ARRAY['{to_capital((extracted_data[0]['state']).capitalize())}'] or state @> ARRAY['{(extracted_data[0]['state']).capitalize()}']))''')
-    # cur.execute(f'''SELECT state FROM dump''')
     all_city=(cur.fetchall())
     cur.close()
     conn.close()
     return all_city
 
+
+#This function will display all the law firms matching with the practice area, state and city selected
 def display_firms(data,extracted_data):
     conn=psycopg2.connect(host=hostname, dbname=database, user=username, password=pwd, port=port_id)
     cur = conn.cursor()
     conn.autocommit= True
     cur.execute(f'''SELECT * FROM dump WHERE (practice_areas @> ARRAY['{(extracted_data[0]['practice_areas'])}']) and (state @> ARRAY['{to_capital(extracted_data[0]['state'].capitalize())}'] or state @> ARRAY['{extracted_data[0]['state'].capitalize()}']) AND ((city @> ARRAY['{to_capital(data.capitalize())}'] or city @> ARRAY['{data}'] or city @>  ARRAY['{to_capital(data.capitalize())}']))''')
-    # cur.execute(f'''SELECT state FROM dump''')
     all_firms=(cur.fetchall())
     cur.execute(f'''SELECT * FROM dump WHERE (practice_areas @> ARRAY['{(extracted_data[0]['practice_areas'])}']) and (state @> ARRAY['{to_capital(extracted_data[0]['state'].capitalize())}'] or state @> ARRAY['{extracted_data[0]['state'].capitalize()}'])''')
     all_firms_ofstates=(cur.fetchall())
-    cur.execute(f'''SELECT * FROM dump WHERE (practice_areas @> ARRAY['{(extracted_data[0]['practice_areas'])}']) and (state @> ARRAY['{to_capital(data.capitalize())}'] or state @> ARRAY['{data.capitalize()}']) AND (state @> ARRAY['{to_capital(extracted_data[0]['state'].capitalize())}'] or state @> ARRAY['{extracted_data[0]['state']}'])''')
-    yy=cur.fetchall()
     cur.close()
     conn.close()
-    
     return all_firms,all_firms_ofstates
 
+
+#Main Page which will display all the practice areas
+#OUTPUT 'datas=practice_areas'
 @app.route('/')
 def index():
     return render_template("practice_areas.html",datas=practice_areas)
 
-@app.route('/practice_areas', methods=['POST'])
-def practice_area_select():
-    return render_template("practice_areas.html",datas=practice_areas)
 
+#Api which will get the practice reas selected and return the matching states
+#OUTPUT 'state_list=sorted(list(set(matching_states)))'
 @app.route('/state', methods=['POST'])
 def state():
     dic = {
         "practice_areas":"",
         "state":"",
         "city":"",
+        "state_list":[],
+        "city_list":[]
     }
     extracted_data=[]
     session_id = request.cookies.get('session_id')
     extracted_data.append(dic)
     extracted_data_cache[session_id] = extracted_data
+    
+    #This function is optional
     def state_match(data):
         matching_states=[]
         state_list=display_state(data)
@@ -179,31 +198,30 @@ def state():
                         matching_states.append(k)
         return matching_states
     
-    input_areas=request.form.get('input_areas')
+    input_areas=request.form['input_area']
+    input_areas=to_capital(input_areas)
+    print(input_areas)
     if input_areas!=None:
         if len(input_areas)!=0:
             matching_states=state_match(input_areas)
             session_id = session.get('session_id')
             extracted_data = extracted_data_cache.get(session_id, [])
             extracted_data[0]["practice_areas"]=input_areas
+            extracted_data[0]["state_list"]=sorted(list(set(matching_states)))
             session_id = request.cookies.get('session_id')
             extracted_data_cache[session_id] = extracted_data
-            return render_template('practice_areas.html', state_list=sorted(list(set(matching_states))))
-   
-    get_areas=request.form['input_submit']
-    if len(get_areas)!=0:
-        matching_states=state_match(get_areas)
-        session_id = session.get('session_id')
-        extracted_data = extracted_data_cache.get(session_id, [])
-        extracted_data[0]["practice_areas"]=get_areas 
-        session_id = request.cookies.get('session_id')
-        extracted_data_cache[session_id] = extracted_data
-        return render_template('practice_areas.html', state_list=sorted(list(set(matching_states))))
+            return render_template('practice_areas.html',datas=practice_areas, state_list=sorted(list(set(matching_states))),extracted_data= extracted_data[0])
     
     return "Please enter a valid Practice areas"
 
+
+#Api to displays the list of matching cities
+#OUTPUT 'city_list=sorted(list(set(matching_city)))'
 @app.route('/city', methods=['POST'])
 def city():
+    
+    
+     #This function is optional
     def city_match(data,extracted_data):
         session_id = session.get('session_id')
         extracted_data = extracted_data_cache.get(session_id, [])
@@ -220,13 +238,20 @@ def city():
     session_id = session.get('session_id')
     extracted_data = extracted_data_cache.get(session_id, [])
     extracted_data[0]["state"]=get_states 
+    matching_city=city_match(get_states,extracted_data)
+    extracted_data[0]["city_list"]=sorted(list(set(matching_city))) 
     session_id = request.cookies.get('session_id')
     extracted_data_cache[session_id] = extracted_data
-    matching_city=city_match(get_states,extracted_data)
-    return render_template('practice_areas.html', city_list=sorted(list(set(matching_city))))
-    
+    return render_template('practice_areas.html',datas=practice_areas, state_list=(extracted_data[0]['state_list']), city_list=sorted(list(set(matching_city))),extracted_data = extracted_data[0])
+
+
+#Api to displays the list of matching law firms with CITY and STATE  
+#OUTPUT 'firms_list=(list((matching_city)))' AND 'firms_list_ofstates=(list(matching_states_filtered))'
 @app.route('/law_firms', methods=['POST'])
 def law_firms():
+    
+    
+    #This function will group the data to a dict so that it will be easy to extract
     def firms_match(data,extracted_data):
         session_id = session.get('session_id')
         extracted_data = extracted_data_cache.get(session_id, [])
@@ -236,7 +261,7 @@ def law_firms():
         for i in firms_list:
             dicc = {
                 "url":i[1],
-                "practice_areas":"",
+                "practice_areas":i[7],
                 "law_firm_name":i[2],
                 "address":i[3],
                 "state":i[4],
@@ -248,7 +273,7 @@ def law_firms():
         for i in firms_list_ofstates:
             diccc = {
                 "url":i[1],
-                "practice_areas":"",
+                "practice_areas":i[7],
                 "law_firm_name":i[2],
                 "address":i[3],
                 "state":i[4],
@@ -274,6 +299,23 @@ def law_firms():
         firms_list_ofstates_status=False
     else:
         firms_list_ofstates_status=True
-    print(extracted_data)
     return render_template('practice_areas.html', firms_list=(list((matching_city))),firms_list_ofstates=(list(matching_states_filtered)),extracted_data=extracted_data[0],firms_list_ofstates_status=firms_list_ofstates_status)
-    
+
+#Api to displays the details of selected law firm
+#OUTPUT 'firm_details=(get_firm[0])'
+@app.route('/LawPage', methods=['POST','GET'])
+def selected_law_firm():
+    get_firm_url=request.form['input_firm']
+    conn=psycopg2.connect(host=hostname, dbname=database, user=username, password=pwd, port=port_id)
+    cur = conn.cursor()
+    conn.autocommit= True
+    cur.execute(f'''SELECT * FROM dump WHERE url = '{get_firm_url}'  ''')
+    get_firm=(cur.fetchall())
+    cur.close()
+    conn.close()
+    session_id = session.get('session_id')
+    extracted_data = extracted_data_cache.get(session_id, [])
+    print(extracted_data)
+    return render_template('practice_areas.html', extracted_data=extracted_data[0], firm_details=(get_firm[0]), firm_details_status=True)
+
+

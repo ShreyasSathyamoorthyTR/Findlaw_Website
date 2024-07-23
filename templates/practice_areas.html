@@ -1,36 +1,76 @@
 {% extends 'index.html'%}
 {% block body %}
-<form method="POST" action="/state">
-    {% for data in datas%}
-        <li><button type="submit" name="input_submit" value="{{(data)}}">{{(data)}}</button></li>
-    {%endfor%}
+
+{% if datas%}
+<h2>Select a practice area</h2>
+<form id="myForm" action="/state" method="post">
+    <label for="myDropdown">Select an option:</label>
+    <select id="myDropdown" name="input_area" placeholder="SJGVSDH" onchange="this.form.submit()">
+        <option value=" ">Select practice_areas</option>
+        {% for data in datas%}
+        <option value="{{(data)}}">{{(data)}}</option>
+        {%endfor%}
+    </select>
 </form>
-<form method="POST" action="/city">
-    {% for data in state_list%}
-        <li><button type="submit" name="input_state" value="{{(data)}}">{{(data)}}</button></li>
-    {%endfor%}
+{% endif %}
+{% if state_list%}
+<h2>List of States for {{extracted_data['practice_areas']}} </h2>
+<form id="myForm" action="/city" method="post">
+    <label for="states">Select an option:</label>
+    <select id="myDropdown" name="input_state" onchange="this.form.submit()">
+        <option value=" ">Select states</option>
+        {% for data in state_list%}
+        <option value="{{(data)}}">{{(data)}}</option>
+        {%endfor%}
+    </select>
 </form>
-<form method="POST" action="/law_firms">
-    {% for data in city_list%}
-        <li><button type="submit" name="input_city" value="{{(data)}}">{{(data)}}</button></li>
-    {%endfor%}
-</form>
-<form method="POST" action="/final">
-    {% for data in firms_list%}
-        <div><button type="submit" name="input_city" value="{{(data)}}"><a href="{{(data['url'])}}">{{(data['law_firm_name'])}}</a>
-            <div><p>{{(extracted_data[0])}}</p></div>
-            {{data}}</button></div>
-    {%endfor%}
-    
-</form>
+{% endif %}
+
+{% if city_list%}
+    <h2>List of Cities for {{extracted_data['practice_areas']}} in {{extracted_data['state']}}</h2>
+    <form id="myForm" action="/law_firms" method="post">
+        <label for="states">Select an option:</label>
+        <select id="myDropdown" name="input_city" onchange="this.form.submit()">
+            <option value=" ">Select city</option>
+            {% for data in city_list%}
+            <option value="{{(data)}}">{{(data)}}</option>
+            {%endfor%}
+        </select>
+    </form>    
+{% endif %}
+
+{% if firms_list%}
+    <h2>List of Law firms for {{extracted_data['practice_areas']}} in {{extracted_data['city']}},{{extracted_data['state']}}</h2>
+    <form method="POST" action="/LawPage">
+        {% for data in firms_list%}
+                <div><button type="submit" name="input_firm" value="{{(data['url'])}}">{{(data['law_firm_name'])}}</button></div>
+        {%endfor%} 
+    </form>
+{% endif %}
+
 {% if firms_list_ofstates_status%}
     <h2>Other Similar law firms in {{extracted_data['state']}}</h2>
-    <form method="POST" action="/final">
+    <form method="POST" action="/LawPage">
         {% for data in firms_list_ofstates%}
-            <div><button type="submit" name="input_city" value="{{(data)}}"><a href="{{(data['url'])}}">{{(data['law_firm_name'])}}</a>
-                <p>{{(data)}}</p>
-            </button></div>
+            <div><button type="submit" name="input_firm" value="{{(data['url'])}}">{{(data['law_firm_name'])}}</button></div>
         {%endfor%}
     </form>
 {% endif %}
+
+{% if firm_details_status%}
+    <h4><a href={{firm_details[1]}}>Law Firm Page</a></h4>
+    <h2>{{firm_details[2]}}</h2>
+    <h3>Practice areas: </h3>
+    {% for data in firm_details[7]%}
+        <li>{{data}}</li>
+    {%endfor%}
+    <h3>Address: </h3>
+    {% for data in firm_details[3]%}
+        <li>{{data}}</li>
+    {%endfor%}
+    <h3>Contact Information: </h3>
+    {% for data in firm_details[6]%}
+        <li>{{data}}</li>
+    {%endfor%}
+{% endif%}
 {% endblock %}
